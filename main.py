@@ -17,7 +17,7 @@ except ImportError:
 
 from datetime import datetime, timedelta
 
-@register("zrb_trader", "LumineStory", "模拟炒股插件", "1.0.0", "https://github.com/oyxning/astrbot-plugin-zirunbi")
+@register("zrb_trader", "LumineStory", "模拟炒股插件", "1.0.2", "https://github.com/oyxning/astrbot-plugin-zirunbi")
 class ZRBTrader(Star):
     def __init__(self, context: Context, config: dict):
         super().__init__(context)
