@@ -1,0 +1,4 @@
+mplfinance
+pandas
+matplotlib
+sqlalchemy

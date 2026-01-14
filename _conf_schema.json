@@ -1,0 +1,25 @@
+{
+  "initial_price": {
+    "description": "初始价格",
+    "type": "float",
+    "default": 100.0
+  },
+  "volatility": {
+    "description": "波动率 (0.01 - 0.5)",
+    "type": "float",
+    "default": 0.02
+  },
+  "update_interval": {
+    "description": "市场更新间隔(秒)",
+    "type": "int",
+    "default": 60
+  },
+  "admin_ids": {
+    "description": "管理员ID列表",
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "default": []
+  }
+}
