@@ -2,6 +2,11 @@ import mplfinance as mpf
 import pandas as pd
 import io
 import matplotlib.pyplot as plt
+import matplotlib
+
+# Try to set Chinese font support
+plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'SimSun', 'WenQuanYi Micro Hei', 'Arial', 'sans-serif']
+plt.rcParams['axes.unicode_minus'] = False
 
 def plot_kline(history_data, title="K-Line"):
     if not history_data:
@@ -9,15 +14,8 @@ def plot_kline(history_data, title="K-Line"):
         
     data = []
     for h in history_data:
-        # Ensure timestamp is string for mpf to handle it correctly without auto-conversion issues
-        # h.timestamp should be timezone-aware (China Time) if coming from database.py logic
-        # But if sqlite stored it naive, we might need to assume it's China time.
-        # Since we want "reality China time" on chart, formatting it explicitly is safest.
-        
-        # If h.timestamp is naive, it's already China time (as stored).
-        # If it's aware, strftime works too.
+        # Ensure timestamp is formatted correctly
         ts = h.timestamp.strftime('%Y-%m-%d %H:%M')
-        
         data.append({
             'Date': ts,
             'Open': h.open,
@@ -35,9 +33,27 @@ def plot_kline(history_data, title="K-Line"):
     # Use non-interactive backend
     plt.switch_backend('Agg')
     
+    # Custom Style: Red for Up, Green for Down (China Standard)
+    mc = mpf.make_marketcolors(up='r', down='g', edge='i', wick='i', volume='in', inherit=True)
+    s = mpf.make_mpf_style(marketcolors=mc, gridstyle='--', y_on_right=True)
+    
     try:
-        mpf.plot(df, type='candle', style='charles', title=title, volume=True, savefig=buf, datetime_format='%Y-%m-%d %H:%M')
+        # Use returnfig=True to allow adding text
+        # datetime_format ensures X-axis is readable
+        fig, axlist = mpf.plot(df, type='candle', style=s, title=title, volume=True, 
+                               datetime_format='%m-%d %H:%M', returnfig=True)
+        
+        # Add Legend/Explanation in Chinese
+        ax = axlist[0]
+        legend_text = "图例说明:\n🟥 红色: 涨 (Up)\n🟩 绿色: 跌 (Down)\nO:开盘 H:最高\nL:最低 C:收盘"
+        
+        # Add text box at top left
+        ax.text(0.02, 0.98, legend_text, transform=ax.transAxes, fontsize=9, 
+                verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.9))
+        
+        fig.savefig(buf, format='png', bbox_inches='tight')
         buf.seek(0)
+        plt.close(fig)
         return buf
     except Exception as e:
         print(f"Plot error: {e}")
