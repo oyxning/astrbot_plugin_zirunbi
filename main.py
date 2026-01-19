@@ -68,7 +68,7 @@ class ZRBTrader(Star):
 /zrb admin open/close - 管理员开关市
 
 🪙 支持币种
-ZRB(孜然), STAR(星星), SHEEP(小羊), XIANGZI(祥子), MIAO(喵喵)"""
+ZRB(孜然), STAR(星星), SHEEP(小羊), XIANGZI(祥子), MIAO(喵喵), QUNZHU(群主), IDEAL(理想)"""
             yield event.plain_result(help_text)
             return
 
