@@ -51,9 +51,9 @@ class ZRBTrader(Star):
         """模拟炒股指令"""
         args = event.message_str.split()
         if len(args) < 2:
-            help_text = """📈 孜然币模拟炒股系统 (v1.0.7)
+            help_text = """📈 孜然币模拟炒股系统 (v1.0.7-fix)
 ━━━━━━━━━━━━━━
-� 行情
+📊 行情
 /zrb price [币]   实时价格
 /zrb change       今日涨跌
 /zrb kline <币>   K线走势
@@ -61,7 +61,7 @@ class ZRBTrader(Star):
 /zrb coins        支持币种
 /zrb news         市场快讯
 
-� 交易
+💸 交易
 /zrb buy <币> <数> [价]   买入
 /zrb sell <币> <数> [价]  卖出
 /zrb orders       挂单列表
