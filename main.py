@@ -17,13 +17,18 @@ except ImportError:
 
 from datetime import datetime, timedelta
 
-@register("zrb_trader", "LumineStory", "模拟炒股插件", "1.0.2", "https://github.com/oyxning/astrbot-plugin-zirunbi")
+@register("zrb_trader", "LumineStory", "模拟炒股插件", "1.0.5", "https://github.com/oyxning/astrbot-plugin-zirunbi")
 class ZRBTrader(Star):
     def __init__(self, context: Context, config: dict):
         super().__init__(context)
         self.config = config
         self.db_path = f"sqlite:///{os.path.join(os.path.dirname(__file__), 'zirunbi.db')}"
         self.db = DB(self.db_path)
+        
+        # Init plotter font
+        font_path = config.get("font_path", "")
+        plotter.init_font(font_path)
+        
         self.market = Market(self.db, config)
         self.market.start()
 
@@ -53,6 +58,7 @@ class ZRBTrader(Star):
 /zrb history <币种> [天数] - 查看历史K线
 /zrb time - 查看股市交易时间表
 /zrb info [币种] - 查看币种介绍
+/zrb change - 查看当前涨跌幅
 /zrb news - 查看今日市场快讯
 
 💰 交易指令
@@ -68,7 +74,7 @@ class ZRBTrader(Star):
 /zrb admin open/close - 管理员开关市
 
 🪙 支持币种
-ZRB(孜然), STAR(星星), SHEEP(小羊), XIANGZI(祥子), MIAO(喵喵), QUNZHU(群主), IDEAL(理想)"""
+ZRB(孜然), STAR(星星), SHEEP(小羊), XIANGZI(祥子), MIAO(喵喵), QUNZHU(群主), IDEAL(理想), FEN(芬币)"""
             yield event.plain_result(help_text)
             return
 
@@ -271,7 +277,8 @@ ZRB(孜然), STAR(星星), SHEEP(小羊), XIANGZI(祥子), MIAO(喵喵), QUNZHU(
                 "XIANGZI": "【祥子币 (Xiangzi Coin)】\n代号: XIANGZI\n为了纪念努力奋斗的祥子而发行。象征着坚韧不拔的打工人精神。\n(虚拟资产，仅供娱乐)",
                 "MIAO": "【喵喵币 (Miao Coin)】\n代号: MIAO\n由神秘的猫咪组织发行，充满变数与灵动。据说只有被选中的铲屎官才能驾驭。\n(虚拟资产，仅供娱乐)",
                 "QUNZHU": "【群主币 (Group Owner Coin)】\n代号: QUNZHU\n群主的权威象征，价格随群主心情波动（大雾）。\n(虚拟资产，仅供娱乐)",
-                "IDEAL": "【理想币 (Ideal Coin)】\n代号: IDEAL\n来自卡拉彼丘世界的通用货币，承载着引航者的梦想与希望。\n(虚拟资产，仅供娱乐)"
+                "IDEAL": "【理想币 (Ideal Coin)】\n代号: IDEAL\n来自卡拉彼丘世界的通用货币，承载着引航者的梦想与希望。\n(虚拟资产，仅供娱乐)",
+                "FEN": "【左旋布洛芬币 (MsLbuprofen Coin)】\n代号: FEN\n这是群友喵，做进游戏了喵。\n(虚拟资产，仅供娱乐)"
             }
             
             if len(args) > 2:
@@ -288,6 +295,75 @@ ZRB(孜然), STAR(星星), SHEEP(小羊), XIANGZI(祥子), MIAO(喵喵), QUNZHU(
                 for code, desc in coin_info.items():
                     msg += f"{desc}\n{'-'*20}\n"
                 yield event.plain_result(msg)
+
+        elif cmd == "change":
+            # /zrb change
+            # Base prices are initial prices for simplicity in this simulation context, 
+            # or we could track "Open" price of the day.
+            # Let's use the 'Open' price of the current candle (which resets daily? No, current_candles in market.py are 3-min candles).
+            # We should get today's opening price.
+            # In market.py: self.prices is current price.
+            # We need to find Today's Open.
+            
+            session = self.db.get_session()
+            now = get_china_time()
+            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            msg = "【今日涨跌幅】\n"
+            msg += f"基准时间: {today_start.strftime('%Y-%m-%d 00:00')}\n\n"
+            
+            for sym in self.market.symbols:
+                # Get first history entry of today or last entry of yesterday as base
+                # Actually, let's just find the first history record >= today_start
+                # If no record today, find the last one before today.
+                
+                base_price = None
+                
+                # 1. Try to find the first record of today
+                first_today = session.query(MarketHistory).filter(
+                    MarketHistory.symbol == sym,
+                    MarketHistory.timestamp >= today_start
+                ).order_by(MarketHistory.timestamp.asc()).first()
+                
+                if first_today:
+                    base_price = first_today.open
+                else:
+                    # 2. If no record today, try last record before today
+                    last_prev = session.query(MarketHistory).filter(
+                        MarketHistory.symbol == sym,
+                        MarketHistory.timestamp < today_start
+                    ).order_by(MarketHistory.timestamp.desc()).first()
+                    
+                    if last_prev:
+                        base_price = last_prev.close
+                    else:
+                        # 3. Fallback to initial config price (hardcoded in market.py unfortunately, or we guess)
+                        # We can use current price as base if nothing else (change 0)
+                        base_price = self.market.prices.get(sym, 100.0)
+
+                current_price = self.market.prices.get(sym, 0.0)
+                
+                if base_price and base_price > 0:
+                    diff = current_price - base_price
+                    pct = (diff / base_price) * 100
+                    
+                    # Formatting
+                    icon = "🔴" if diff > 0 else "fz" if diff < 0 else "⚪" # 🔴Up, 🟢Down (China standard: Red Up, Green Down)
+                    # Actually standard emoji: 📈 📉
+                    # But user asked for "mark how much it rose".
+                    # China stock color: Red=Rise, Green=Fall.
+                    color_icon = "📈" if diff > 0 else "📉" if diff < 0 else "➖"
+                    sign = "+" if diff > 0 else ""
+                    
+                    msg += f"{sym}: {current_price:.2f} (基准: {base_price:.2f})\n"
+                    msg += f"{color_icon} {sign}{diff:.2f} ({sign}{pct:.2f}%)\n"
+                else:
+                    msg += f"{sym}: {current_price:.2f} (暂无基准)\n"
+                
+                msg += "-"*20 + "\n"
+            
+            session.close()
+            yield event.plain_result(msg)
 
         elif cmd == "buy" or cmd == "sell":
             # /zrb buy <symbol> <amount> [price]

@@ -2,11 +2,26 @@ import mplfinance as mpf
 import pandas as pd
 import io
 import matplotlib.pyplot as plt
-import matplotlib
+import matplotlib.font_manager as fm
+import os
 
-# Try to set Chinese font support
-plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'SimSun', 'WenQuanYi Micro Hei', 'Arial', 'sans-serif']
-plt.rcParams['axes.unicode_minus'] = False
+# Global font prop
+_custom_font_prop = None
+
+def init_font(font_path=None):
+    global _custom_font_prop
+    # Try to load custom font if provided
+    if font_path and os.path.exists(font_path):
+        try:
+            _custom_font_prop = fm.FontProperties(fname=font_path)
+            # Also register it globally for matplotlib if possible, but FontProperties is safer for specific text
+            print(f"Loaded custom font from: {font_path}")
+        except Exception as e:
+            print(f"Failed to load custom font: {e}")
+    
+    # Fallback to system fonts
+    plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'SimSun', 'WenQuanYi Micro Hei', 'Arial', 'sans-serif']
+    plt.rcParams['axes.unicode_minus'] = False
 
 def plot_kline(history_data, title="K-Line"):
     if not history_data:
@@ -47,9 +62,17 @@ def plot_kline(history_data, title="K-Line"):
         ax = axlist[0]
         legend_text = "图例说明:\n🟥 红色: 涨 (Up)\n🟩 绿色: 跌 (Down)\nO:开盘 H:最高\nL:最低 C:收盘"
         
+        # Use custom font property if available
+        font_dict = {}
+        if _custom_font_prop:
+            font_dict['fontproperties'] = _custom_font_prop
+
         # Add text box at top left
         ax.text(0.02, 0.98, legend_text, transform=ax.transAxes, fontsize=9, 
-                verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.9))
+                verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.9), **font_dict)
+        
+        # Also apply font to title if needed (though mpf handles title internally, we can try to set it on axes if we passed returnfig)
+        # But mpf title is usually fine if it's English. If Chinese title, might need more work.
         
         fig.savefig(buf, format='png', bbox_inches='tight')
         buf.seek(0)
@@ -79,7 +102,13 @@ def plot_holdings_multi(balance, holdings_data, title="User Holdings"):
     fig, ax = plt.subplots()
     ax.pie(sizes, labels=labels, autopct='%1.1f%%', shadow=True, startangle=90)
     ax.axis('equal')
-    plt.title(title)
+    
+    # Apply font to title
+    font_dict = {}
+    if _custom_font_prop:
+        font_dict['fontproperties'] = _custom_font_prop
+        
+    plt.title(title, **font_dict)
     
     buf = io.BytesIO()
     plt.savefig(buf, format='png')

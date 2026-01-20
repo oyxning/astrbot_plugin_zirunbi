@@ -26,7 +26,7 @@ class Market:
         self.last_auto_state = None # To track transitions
         
         # Define symbols
-        self.symbols = ["ZRB", "STAR", "SHEEP", "XIANGZI", "MIAO", "QUNZHU", "IDEAL"]
+        self.symbols = ["ZRB", "STAR", "SHEEP", "XIANGZI", "MIAO", "QUNZHU", "IDEAL", "FEN"]
         
         # Initial prices
         self.prices = {
@@ -36,7 +36,8 @@ class Market:
             "XIANGZI": 5.0,
             "MIAO": 20.0,
             "QUNZHU": 88.0,
-            "IDEAL": 60.0
+            "IDEAL": 60.0,
+            "FEN": 25.0
         }
         
         # Current candles per symbol

@@ -21,5 +21,10 @@
       "type": "string"
     },
     "default": []
+  },
+  "font_path": {
+    "description": "中文字体文件路径 (可选, 用于修复绘图中文乱码)",
+    "type": "string",
+    "default": ""
   }
 }

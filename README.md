@@ -4,7 +4,7 @@ AstrBot 的一款多币种虚拟加密货币交易模拟插件。在群聊中体
 
 ## ✨ 功能特性
 
-*   **📈 多币种实时市场**：支持 **ZRB (孜然币)**、**STAR (星星币)**、**SHEEP (小羊币)**、**XIANGZI (祥子币)**、**MIAO (喵喵币)**、**QUNZHU (群主币)**、**IDEAL (理想币)** 七种虚拟货币。
+*   **📈 多币种实时市场**：支持 **ZRB (孜然币)**、**STAR (星星币)**、**SHEEP (小羊币)**、**XIANGZI (祥子币)**、**MIAO (喵喵币)**、**QUNZHU (群主币)**、**IDEAL (理想币)**、**FEN (芬币)** 八种虚拟货币。
 *   **🇨🇳 中国时区支持**：所有交易时间与 K 线图均采用 **UTC+8** 时间，符合国内用户习惯。
 *   **⚡ 智能交易系统**：
     *   **3分钟** 周期价格更新机制。
@@ -78,4 +78,4 @@ AstrBot 的一款多币种虚拟加密货币交易模拟插件。在群聊中体
 
 *   **Author**: LumineStory
 *   **Repository**: [github.com/oyxning/astrbot-plugin-zirunbi](https://github.com/oyxning/astrbot-plugin-zirunbi)
-*   **Version**: 1.0.2
+*   **Version**: 1.0.5
