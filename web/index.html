@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>孜然币模拟炒股 Web 版</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+        .market-list-item { cursor: pointer; transition: background-color 0.2s; }
+        .market-list-item:hover { background-color: #f1f3f5; }
+        .market-list-item.active { background-color: #e9ecef; border-left: 4px solid #0d6efd; }
+        .price-up { color: #dc3545; font-weight: bold; } /* Chinese Red for Up */
+        .price-down { color: #198754; font-weight: bold; } /* Chinese Green for Down */
+        #kline-chart { width: 100%; height: 450px; }
+        .card-shadow { box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: none; }
+        .login-container { max-width: 400px; margin-top: 100px; }
+        #app-content { display: none; }
+    </style>
+</head>
+<body>
+
+<!-- Login View -->
+<div class="container login-container" id="login-view">
+    <div class="card card-shadow">
+        <div class="card-body p-4">
+            <h3 class="text-center mb-4">📈 孜然币模拟交易</h3>
+            <div class="mb-3">
+                <label class="form-label">QQ账号</label>
+                <input type="text" class="form-control" id="login-uid" placeholder="请输入您的QQ号">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">交易密码</label>
+                <input type="password" class="form-control" id="login-pwd" placeholder="Bot处注册的密码">
+            </div>
+            <div class="d-grid">
+                <button class="btn btn-primary btn-lg" onclick="handleLogin()">登 录</button>
+            </div>
+            <div class="mt-3 text-center text-muted small">
+                请先在 Bot 私聊发送 <code>/zrb register &lt;密码&gt;</code> 获取密码
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main App View -->
+<div id="app-content">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">� 孜然币交易所</a>
+            <div class="d-flex text-light align-items-center">
+                <span class="me-3">👤 <span id="nav-user-id">--</span></span>
+                <button class="btn btn-outline-light btn-sm" onclick="logout()">退出</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4">
+        <div class="row g-4">
+            <!-- Left: Market List -->
+            <div class="col-md-3">
+                <div class="card card-shadow h-100">
+                    <div class="card-header bg-white fw-bold">📊 市场行情</div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush" id="market-list">
+                            <!-- Items will be injected here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Middle: Chart -->
+            <div class="col-md-6">
+                <div class="card card-shadow mb-4">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <span class="fw-bold" id="chart-title">选择币种查看K线</span>
+                        <span class="badge bg-secondary" id="market-status-badge">--</span>
+                    </div>
+                    <div class="card-body">
+                        <div id="kline-chart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Trade & Assets -->
+            <div class="col-md-3">
+                <!-- Assets Card -->
+                <div class="card card-shadow mb-4">
+                    <div class="card-header bg-white fw-bold">� 我的资产</div>
+                    <div class="card-body">
+                        <h4 class="mb-3">¥ <span id="asset-balance">0.00</span></h4>
+                        <div id="asset-holdings" style="max-height: 200px; overflow-y: auto;">
+                            <!-- Holdings list -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trade Card -->
+                <div class="card card-shadow">
+                    <div class="card-header bg-white fw-bold">💸 快速交易</div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">币种</label>
+                            <input type="text" class="form-control" id="trade-symbol" readonly value="--">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">方向</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="trade-action" id="action-buy" value="buy" checked>
+                                <label class="btn btn-outline-danger" for="action-buy">买入 (Buy)</label>
+                                <input type="radio" class="btn-check" name="trade-action" id="action-sell" value="sell">
+                                <label class="btn btn-outline-success" for="action-sell">卖出 (Sell)</label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">价格</label>
+                            <input type="number" class="form-control" id="trade-price" placeholder="留空为市价单">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">数量</label>
+                            <input type="number" class="form-control" id="trade-amount" placeholder="0.0">
+                        </div>
+                        <div class="d-grid">
+                            <button class="btn btn-primary" onclick="submitTrade()">提交订单</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // State
+    let currentUser = null;
+    let currentSymbol = null;
+    let marketPrices = {};
+    let chartInstance = null;
+    let refreshInterval = null;
+
+    // Initialization
+    document.addEventListener('DOMContentLoaded', () => {
+        const storedUser = localStorage.getItem('zrb_user');
+        if (storedUser) {
+            currentUser = JSON.parse(storedUser);
+            initApp();
+        } else {
+            document.getElementById('login-view').style.display = 'block';
+        }
+        
+        // Init Chart
+        chartInstance = echarts.init(document.getElementById('kline-chart'));
+        window.addEventListener('resize', () => chartInstance.resize());
+    });
+
+    // Login Logic
+    async function handleLogin() {
+        const uid = document.getElementById('login-uid').value;
+        const pwd = document.getElementById('login-pwd').value;
+        
+        if (!uid || !pwd) return alert('请输入完整信息');
+
+        try {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({user_id: uid, password: pwd})
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                currentUser = {user_id: data.user_id, balance: data.balance};
+                localStorage.setItem('zrb_user', JSON.stringify(currentUser));
+                document.getElementById('login-view').style.display = 'none';
+                initApp();
+            } else {
+                alert(data.detail || '登录失败');
+            }
+        } catch (e) {
+            alert('网络错误: ' + e);
+        }
+    }
+
+    function logout() {
+        localStorage.removeItem('zrb_user');
+        location.reload();
+    }
+
+    function initApp() {
+        document.getElementById('app-content').style.display = 'block';
+        document.getElementById('nav-user-id').innerText = currentUser.user_id;
+        
+        refreshData();
+        refreshInterval = setInterval(refreshData, 3000); // 3s refresh
+    }
+
+    // Data Fetching
+    async function refreshData() {
+        if (!currentUser) return;
+
+        // 1. Market Prices
+        try {
+            const res = await fetch('/api/market');
+            const data = await res.json();
+            marketPrices = data.prices;
+            renderMarketList(data.prices);
+            
+            const badge = document.getElementById('market-status-badge');
+            badge.innerText = data.is_open ? "交易中" : "休市";
+            badge.className = data.is_open ? "badge bg-success" : "badge bg-secondary";
+        } catch (e) { console.error("Market fetch error", e); }
+
+        // 2. User Assets
+        try {
+            const res = await fetch(`/api/assets/${currentUser.user_id}`);
+            const data = await res.json();
+            renderAssets(data);
+        } catch (e) { console.error("Asset fetch error", e); }
+    }
+
+    function renderMarketList(prices) {
+        const list = document.getElementById('market-list');
+        list.innerHTML = ''; // Clear
+
+        // If no symbol selected, select first one
+        const symbols = Object.keys(prices);
+        if (!currentSymbol && symbols.length > 0) {
+            selectSymbol(symbols[0]);
+        }
+
+        symbols.forEach(sym => {
+            const price = prices[sym];
+            const item = document.createElement('div');
+            item.className = `list-group-item market-list-item d-flex justify-content-between align-items-center ${sym === currentSymbol ? 'active' : ''}`;
+            item.onclick = () => selectSymbol(sym);
+            
+            item.innerHTML = `
+                <span class="fw-bold">${sym}</span>
+                <span class="${sym === currentSymbol ? 'text-dark' : 'text-primary'}">${price.toFixed(2)}</span>
+            `;
+            list.appendChild(item);
+        });
+    }
+
+    function renderAssets(data) {
+        document.getElementById('asset-balance').innerText = data.balance.toFixed(2);
+        const container = document.getElementById('asset-holdings');
+        
+        if (data.holdings.length === 0) {
+            container.innerHTML = '<div class="text-muted text-center mt-3">暂无持仓</div>';
+            return;
+        }
+
+        let html = '<ul class="list-group list-group-flush small">';
+        data.holdings.forEach(h => {
+            // Calculate value if possible
+            const price = marketPrices[h.symbol] || 0;
+            const val = price * h.amount;
+            html += `
+                <li class="list-group-item d-flex justify-content-between px-0">
+                    <span>${h.symbol}</span>
+                    <span class="text-end">
+                        <div>${h.amount.toFixed(4)}</div>
+                        <div class="text-muted" style="font-size: 0.8em">≈ ¥${val.toFixed(2)}</div>
+                    </span>
+                </li>`;
+        });
+        html += '</ul>';
+        container.innerHTML = html;
+    }
+
+    // Chart Logic
+    async function selectSymbol(sym) {
+        if (currentSymbol === sym) return;
+        currentSymbol = sym;
+        
+        // Update UI selection
+        document.getElementById('trade-symbol').value = sym;
+        document.getElementById('chart-title').innerText = `${sym} K线走势`;
+        
+        // Force refresh market list to update active state
+        renderMarketList(marketPrices);
+
+        // Load Chart Data
+        await loadKlineData(sym);
+    }
+
+    async function loadKlineData(sym) {
+        chartInstance.showLoading();
+        try {
+            const res = await fetch(`/api/kline/${sym}`);
+            const data = await res.json();
+            renderChart(data.symbol, data.data);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            chartInstance.hideLoading();
+        }
+    }
+
+    function renderChart(symbol, rawData) {
+        // Data format: {time, open, high, low, close, volume}
+        const dates = rawData.map(item => item.time);
+        const data = rawData.map(item => [item.open, item.close, item.low, item.high]);
+        const volumes = rawData.map((item, index) => [index, item.volume, item.open > item.close ? -1 : 1]);
+
+        const option = {
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'cross' }
+            },
+            grid: [
+                { left: '10%', right: '8%', height: '60%' },
+                { left: '10%', right: '8%', top: '75%', height: '15%' }
+            ],
+            xAxis: [
+                { type: 'category', data: dates, scale: true, boundaryGap: false, axisLine: { onZero: false }, splitLine: { show: false }, min: 'dataMin', max: 'dataMax' },
+                { type: 'category', gridIndex: 1, data: dates, scale: true, boundaryGap: false, axisLine: { onZero: false }, axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false }, min: 'dataMin', max: 'dataMax' }
+            ],
+            yAxis: [
+                { scale: true, splitArea: { show: true } },
+                { scale: true, gridIndex: 1, splitNumber: 2, axisLabel: { show: false }, axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: false } }
+            ],
+            dataZoom: [
+                { type: 'inside', xAxisIndex: [0, 1], start: 50, end: 100 },
+                { show: true, xAxisIndex: [0, 1], type: 'slider', top: '90%', start: 50, end: 100 }
+            ],
+            series: [
+                {
+                    name: symbol,
+                    type: 'candlestick',
+                    data: data,
+                    itemStyle: {
+                        color: '#dc3545', // Red Up
+                        color0: '#198754', // Green Down
+                        borderColor: '#dc3545',
+                        borderColor0: '#198754'
+                    }
+                },
+                {
+                    name: 'Volume',
+                    type: 'bar',
+                    xAxisIndex: 1,
+                    yAxisIndex: 1,
+                    data: volumes.map(item => item[1]),
+                    itemStyle: {
+                        color: (params) => {
+                            return volumes[params.dataIndex][2] > 0 ? '#dc3545' : '#198754';
+                        }
+                    }
+                }
+            ]
+        };
+
+        chartInstance.setOption(option);
+    }
+
+    // Trade Logic
+    async function submitTrade() {
+        const action = document.querySelector('input[name="trade-action"]:checked').value;
+        const amount = parseFloat(document.getElementById('trade-amount').value);
+        const priceStr = document.getElementById('trade-price').value;
+        const price = priceStr ? parseFloat(priceStr) : null;
+
+        if (!currentSymbol || !amount) return alert('请填写完整');
+
+        try {
+            const res = await fetch('/api/trade', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    user_id: currentUser.user_id,
+                    symbol: currentSymbol,
+                    amount: amount,
+                    price: price,
+                    action: action
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert(`订单提交成功！\nID: ${data.order_id}\n状态: ${data.order_status}`);
+                // Clear inputs
+                document.getElementById('trade-amount').value = '';
+                document.getElementById('trade-price').value = '';
+                // Refresh assets immediately
+                refreshData();
+            } else {
+                alert(`交易失败: ${data.detail}`);
+            }
+        } catch (e) {
+            alert('网络错误: ' + e);
+        }
+    }
+
+</script>
+</body>
+</html>

@@ -52,6 +52,7 @@ class OrderStatus(enum.Enum):
 class User(Base):
     __tablename__ = 'users'
     user_id = Column(String, primary_key=True)
+    password_hash = Column(String, nullable=True) # Web login password hash
     balance = Column(Float, default=10000.0)
     # Holdings will be in a separate table
     holdings = relationship("UserHolding", back_populates="user")
@@ -124,6 +125,17 @@ class DB:
                     conn.commit()
                 except Exception as e:
                     print(f"Migration error (market_history.symbol): {e}")
+            
+            # Check and add password_hash to users
+            try:
+                conn.execute(text("SELECT password_hash FROM users LIMIT 1"))
+            except Exception:
+                try:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR"))
+                    conn.commit()
+                except Exception as e:
+                    print(f"Migration error (users.password_hash): {e}")
+
         self.Session = sessionmaker(bind=self.engine)
     
     def get_session(self):

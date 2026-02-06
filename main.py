@@ -7,17 +7,19 @@ import io
 import tempfile
 
 try:
-    from .database import DB, Order, OrderType, OrderStatus, MarketHistory, UserHolding, MarketNews, get_china_time
+    from .database import DB, User, Order, OrderType, OrderStatus, MarketHistory, UserHolding, MarketNews, get_china_time
     from .market import Market
     from . import plotter
+    from .web_server import WebServer, pwd_context
 except ImportError:
-    from database import DB, Order, OrderType, OrderStatus, MarketHistory, UserHolding, MarketNews, get_china_time
+    from database import DB, User, Order, OrderType, OrderStatus, MarketHistory, UserHolding, MarketNews, get_china_time
     from market import Market
     import plotter
+    from web_server import WebServer, pwd_context
 
 from datetime import datetime, timedelta
 
-@register("zrb_trader", "LumineStory", "模拟炒股插件", "1.0.5", "https://github.com/oyxning/astrbot-plugin-zirunbi")
+@register("zrb_trader", "LumineStory", "模拟炒股插件", "1.1.0", "https://github.com/oyxning/astrbot-plugin-zirunbi")
 class ZRBTrader(Star):
     def __init__(self, context: Context, config: dict):
         super().__init__(context)
@@ -32,8 +34,17 @@ class ZRBTrader(Star):
         self.market = Market(self.db, config)
         self.market.start()
 
-    def terminate(self):
+        # Start Web Server
+        web_port = config.get("web_port", 8000)
+        self.web_server = WebServer(self.db, self.market, port=web_port)
+        self.web_server.run_in_background()
+        logger.info(f"[Zirunbi] Web server started on port {web_port}")
+
+    async def terminate(self):
         self.market.stop()
+        if hasattr(self, 'web_server'):
+            await self.web_server.stop()
+        logger.info("[Zirunbi] Plugin terminated")
 
     def _save_temp_image(self, buf):
         """Helper to save BytesIO to temp file for image_result"""
@@ -51,7 +62,7 @@ class ZRBTrader(Star):
         """模拟炒股指令"""
         args = event.message_str.split()
         if len(args) < 2:
-            help_text = """📈 孜然币模拟炒股系统 (v1.0.7-fix)
+            help_text = """📈 孜然币模拟炒股系统 (v1.1.0)
 ━━━━━━━━━━━━━━
 📊 行情
 /zrb price [币]   实时价格
@@ -74,7 +85,8 @@ class ZRBTrader(Star):
 
 ⚙️ 系统
 /zrb time         开市时间
-/zrb admin        管理指令"""
+/zrb admin        管理指令
+/zrb register <密码> 注册Web账号"""
             yield event.plain_result(help_text)
             return
 
@@ -90,6 +102,42 @@ class ZRBTrader(Star):
             # /zrb coins
             coins_list = ", ".join(self.market.symbols)
             yield event.plain_result(f"🪙 支持币种:\n{coins_list}")
+
+        elif cmd == "register":
+            # /zrb register <password>
+            if len(args) < 3:
+                yield event.plain_result("请设置密码: /zrb register <您的密码>")
+                return
+            
+            password = args[2]
+            if len(password) < 6:
+                yield event.plain_result("密码长度至少需要6位")
+                return
+
+            # Note: We should handle private chat context ideally, but here we just check if user exists
+            # Ideally user should do this in private chat to avoid leaking password
+            # But let's proceed.
+            
+            user, session = self.db.get_or_create_user(user_id)
+            
+            # Hash password
+            pw_hash = pwd_context.hash(password)
+            user.password_hash = pw_hash
+            session.commit()
+            session.close()
+            
+            # Construct URL
+            web_url = self.config.get("web_public_url", "")
+            if not web_url:
+                web_port = self.config.get("web_port", 8000)
+                web_url = f"http://<BotIP>:{web_port}"
+            
+            msg = f"✅ Web账号注册成功！\n"
+            msg += f"👤 账号: {user_id}\n"
+            msg += f"🔑 密码: {password} (请妥善保管)\n"
+            msg += f"🌐 登录地址: {web_url}"
+            
+            yield event.plain_result(msg)
 
         elif cmd == "price":
             # /zrb price [symbol]
